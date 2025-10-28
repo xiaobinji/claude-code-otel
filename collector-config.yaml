@@ -1,10 +1,18 @@
+extensions:
+  bearertokenauth:
+    token: "yz-metrics-token-change-me"
+
 receivers:
   otlp:
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
+        auth:
+          authenticator: bearertokenauth
       http:
         endpoint: 0.0.0.0:4318
+        auth:
+          authenticator: bearertokenauth
 
 processors:
   # Add resource attributes for better analysis
@@ -25,6 +33,7 @@ exporters:
     endpoint: http://loki:3100/otlp
 
 service:
+  extensions: [bearertokenauth]
   pipelines:
     metrics: 
       receivers: [otlp]
