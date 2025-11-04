@@ -1,6 +1,10 @@
 networks:
   otel-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+          gateway: 172.25.0.1
 
 services:
   otel-collector:
@@ -20,8 +24,13 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=180d'
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
     ports:
       - "9090:9090"
     restart: unless-stopped
@@ -32,6 +41,8 @@ services:
   loki:
     image: grafana/loki:latest
     container_name: loki
+    volumes:
+      - loki-data:/loki
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
@@ -50,9 +61,32 @@ services:
       - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
       - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
       - ./claude-code-dashboard.json:/var/lib/grafana/dashboards/claude-code-dashboard.json:ro
+      - grafana-data:/var/lib/grafana
     ports:
       - "3000:3000"
     restart: unless-stopped
     depends_on: [prometheus, loki]
     networks:
       - otel-network 
+
+  yai-chat:
+    container_name: yai-chat
+    image: registry.yingzios.com/dockerhub-proxy2/proxyxai/chat
+    pull_policy: always
+    restart: always
+    ports:
+      - 3200:3000
+    environment:
+      TZ: Asia/Shanghai
+      BASE_URL: https://yz-api-xai.yingzi.com
+      OPENAI_BASE_URL: https://yz-api-xai.yingzi.com
+      ANTHROPIC_URL: https://yz-api-xai.yingzi.com
+      GOOGLE_URL: https://yz-api-xai.yingzi.com
+      CUSTOM_MODELS: +anthropic/claude-sonnet,anthropic/claude-opus,moonshotai/kimi-k2-instruct-0905,grok-4,grok-4-fast,grok-code-fast,gpt-5,gpt-5-chat,google/gemini-2.5-pro,sonar-pro,palmyra-x4,palmyra-x5,-gemini-1.5-pro-latest,-gemini-1.0-pro,-gemini-pro-vision,-gpt-4-turbo-preview,-gpt-4-vision-preview,-claude-instant-1.2,-claude-2.0,-claude-2.1
+    networks:
+      - otel-network
+
+volumes:
+  prometheus-data:
+  loki-data:
+  grafana-data:    
