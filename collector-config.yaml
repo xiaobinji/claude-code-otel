@@ -21,10 +21,25 @@ processors:
       - key: environment
         value: "production"
         action: upsert
+  
+  # Transform resource attributes to metric attributes for Prometheus
+  # This ensures custom OTEL_RESOURCE_ATTRIBUTES become Prometheus labels
+  transform/metrics:
+    metric_statements:
+      - context: datapoint
+        statements:
+          # Copy resource attributes to datapoint attributes
+          - set(attributes["department"], resource.attributes["department"]) where resource.attributes["department"] != nil
+          - set(attributes["role_id"], resource.attributes["role.id"]) where resource.attributes["role.id"] != nil
+          - set(attributes["user_name"], resource.attributes["user.name"]) where resource.attributes["user.name"] != nil
+          - set(attributes["environment"], resource.attributes["environment"]) where resource.attributes["environment"] != nil
 
 exporters:
   prometheus:
     endpoint: "0.0.0.0:8889"
+    # Enable resource attributes to be converted to metric labels
+    resource_to_telemetry_conversion:
+      enabled: true
 
   debug:
     verbosity: normal
@@ -37,7 +52,7 @@ service:
   pipelines:
     metrics: 
       receivers: [otlp]
-      processors: [resource]
+      processors: [resource, transform/metrics]
       exporters: [prometheus, debug]
     
     logs:    
